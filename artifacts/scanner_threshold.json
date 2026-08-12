@@ -1,0 +1,7 @@
+{
+  "threshold": 1.809124214030992,
+  "quantile": 0.3,
+  "n_train_bars_used": 22591,
+  "train_end_pos": 22610,
+  "train_end_ts": "2026-01-23 01:00:00+00:00"
+}
