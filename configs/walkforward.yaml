@@ -1,0 +1,52 @@
+# P02: walk-forward grid (owner-approved package change, 2026-08-12).
+# Grid axes: scanner.quantiles x scanner.triggers. Everything else identical
+# across cells (same costs, same model params, same folds, same controls).
+
+data:
+  csv_path: /Users/zhangzc/fable-trading/data/kline_fetched/okx_ETH_USDT_SWAP_15m_41281.csv
+  symbol: ETH-USDT-SWAP
+  timeframe: 15m
+  bar_minutes: 15
+  data_end_boundary: "2026-05-04T00:00:00+00:00"   # holdout never read
+
+windows:
+  local_window: 30
+  context_window: 120
+
+scanner:
+  quantiles: [0.30, 0.45]          # 0.30 = MVP original (control); 0.45 = expanded pool
+  triggers: [zone_start, dispersion_exit, price_breakout]   # zone_start = MVP original (control)
+  min_duration: 3
+  cooldown_bars: 5
+
+label:
+  horizon_hours: 6
+  mae_penalty: 0.7
+  round_trip_cost: 0.0010          # fable-trading costs.py SWAP_TAKER, owner value
+  cost_sweep: [0.0010, 0.002]
+
+walkforward:
+  n_folds: 4
+  initial_train_frac: 0.40         # fold tests cover the last 60% of bars in 4 slices
+  inner_val_frac: 0.15             # tail of each fold's train, for early stopping only
+
+model:
+  num_leaves: 15
+  max_depth: 5
+  learning_rate: 0.03
+  n_estimators: 300
+  subsample: 0.8
+  colsample_bytree: 0.8
+  random_state: 42
+  early_stopping_rounds: 50
+
+review_charts:
+  cells: ["dispersion_exit@0.45", "price_breakout@0.45"]   # new-trigger cells only
+  n_top: 50
+  n_random: 50
+  n_bottom: 50
+  random_seed: 42
+
+paths:
+  artifacts_dir: artifacts/p02
+  reports_dir: reports

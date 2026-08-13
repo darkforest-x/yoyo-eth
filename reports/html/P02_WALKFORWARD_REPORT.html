@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P02 — Walk-forward 触发点 × 池宽 网格实验</title>
+<style>
+:root { color-scheme: light dark; }
+body { max-width: 62rem; margin: 0 auto; padding: 2rem 1.2rem 5rem;
+       font: 16px/1.75 -apple-system, "PingFang SC", "Hiragino Sans GB",
+             "Microsoft YaHei", system-ui, sans-serif;
+       color: #1a1a1a; background: #fff; word-wrap: break-word; }
+h1 { font-size: 1.9rem; border-bottom: 3px solid #1976d2; padding-bottom: .4rem;
+     margin: 2.4rem 0 1rem; }
+h2 { font-size: 1.45rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3rem;
+     margin: 2rem 0 .8rem; }
+h3 { font-size: 1.15rem; margin: 1.5rem 0 .6rem; }
+h4 { font-size: 1rem; margin: 1.2rem 0 .5rem; color: #444; }
+table { border-collapse: collapse; margin: 1rem 0; font-size: .92rem;
+        display: block; overflow-x: auto; max-width: 100%; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .7rem; text-align: left;
+         white-space: nowrap; }
+th { background: #f2f5f8; font-weight: 600; }
+tr:nth-child(even) td { background: #fafbfc; }
+code { background: #f2f5f8; padding: .12em .35em; border-radius: 4px;
+       font: .88em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+pre { background: #f6f8fa; padding: .9rem 1.1rem; border-radius: 8px;
+      overflow-x: auto; border: 1px solid #e3e8ee; }
+pre code { background: none; padding: 0; font-size: .85rem; }
+blockquote { margin: 1rem 0; padding: .6rem 1rem; border-left: 4px solid #1976d2;
+             background: #f5f9ff; color: #2c3e50; }
+hr { border: 0; border-top: 1px solid #d0d7de; margin: 2.5rem 0; }
+a { color: #1976d2; }
+img { display: block; max-width: 100%; height: auto; margin: 1rem 0;
+      border: 1px solid #d0d7de; border-radius: 8px; }
+ul, ol { padding-left: 1.5rem; }
+li { margin: .25rem 0; }
+@media (prefers-color-scheme: dark) {
+  body { color: #e6e6e6; background: #14171a; }
+  h2, th, td, hr, pre { border-color: #30363d; }
+  th { background: #1c2128; } tr:nth-child(even) td { background: #191d21; }
+  code, pre { background: #1c2128; } h4 { color: #b8c0c8; }
+  blockquote { background: #172029; color: #cbd5e0; }
+}
+</style>
+</head>
+<body>
+<h1>P02 — Walk-forward 触发点 × 池宽 网格实验</h1>
+<p>Owner 2026-08-12 批准的打包改动(1 触发点语义 2 扩池 3 walk-forward)。归因方式: 同一 harness 下的 2x3 网格,任一行/列内只有一个变量在动。复现:</p>
+<pre><code>
+cd /Users/zhangzc/yoyo-eth
+python3 scripts/run_walkforward.py --config configs/walkforward.yaml
+python3 -m pytest tests/ -q
+</code></pre>
+<h2>Harness</h2>
+<table><thead><tr>
+<th>item</th>
+<th>value</th>
+</tr></thead><tbody>
+<tr><td>data</td><td>2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0 (holdout &gt;= 2026-05-04 never read)</td></tr>
+<tr><td>folds</td><td>4 anchored, initial train 40%, OOS = last 60% in equal slices</td></tr>
+<tr><td>embargo gap</td><td>164 bars; horizon 24 bars</td></tr>
+<tr><td>threshold freeze</td><td>per fold, inner-train bars only (inner val 15% of train, early stopping only)</td></tr>
+<tr><td>top-decile</td><td>selected PER FOLD, outcomes pooled (fold models&#x27; scores are not cross-comparable)</td></tr>
+<tr><td>control</td><td>matched random per fold test segment (month x ATR tercile, 20 draws/event), pooled</td></tr>
+<tr><td>costs</td><td>0.001 round-trip (SWAP_TAKER, owner value); sweep [0.001, 0.002]</td></tr>
+</tbody></table>
+<h2>网格结果(全部 out-of-sample)</h2>
+<table><thead><tr>
+<th>cell</th>
+<th>OOS n</th>
+<th>rho per fold</th>
+<th>rho wmean</th>
+<th>top10 gross</th>
+<th>top10 net@0.001 / top10 net@0.002</th>
+<th>all gross</th>
+<th>control gross</th>
+<th>all-ctrl</th>
+<th>top10-ctrl</th>
+</tr></thead><tbody>
+<tr><td>zone_start@0.3</td><td>195</td><td>[-0.132, 0.202, -0.04, -0.225]</td><td>-0.035</td><td>-17.7bp</td><td>-28bp / -38bp</td><td>+14.1bp</td><td>+8.4bp</td><td>+5.7bp</td><td>-26.2bp</td></tr>
+<tr><td>zone_start@0.45</td><td>177</td><td>[0.052, -0.083, 0.011, 0.255]</td><td>+0.052</td><td>+31.0bp</td><td>+21bp / +11bp</td><td>+7.8bp</td><td>+14.4bp</td><td>-6.7bp</td><td>+16.6bp</td></tr>
+<tr><td>dispersion_exit@0.3</td><td>207</td><td>[0.025, 0.006, 0.015, 0.117]</td><td>+0.037</td><td>+60.7bp</td><td>+51bp / +41bp</td><td>+2.8bp</td><td>+6.1bp</td><td>-3.4bp</td><td>+54.6bp</td></tr>
+<tr><td>dispersion_exit@0.45</td><td>192</td><td>[-0.085, -0.135, 0.184, -0.011]</td><td>-0.012</td><td>+48.9bp</td><td>+39bp / +29bp</td><td>+9.3bp</td><td>+9.0bp</td><td>+0.3bp</td><td>+39.9bp</td></tr>
+<tr><td>price_breakout@0.3</td><td>270</td><td>[-0.072, 0.029, -0.273, -0.103]</td><td>-0.096</td><td>-34.8bp</td><td>-45bp / -55bp</td><td>+8.2bp</td><td>+6.9bp</td><td>+1.3bp</td><td>-41.7bp</td></tr>
+<tr><td>price_breakout@0.45</td><td>335</td><td>[0.003, -0.127, -0.084, -0.023]</td><td>-0.059</td><td>+1.9bp</td><td>-8bp / -18bp</td><td>+5.8bp</td><td>+9.4bp</td><td>-3.6bp</td><td>-7.5bp</td></tr>
+</tbody></table>
+<p>triggers: zone_start = 压缩带开头开火(MVP 原版,对照); dispersion_exit = 带向上穿出 (压缩结束); price_breakout = 收盘首次离开 <a href="突破尝试">ma_lower, ma_upper</a>。 quantile 0.30 = MVP 原版(对照); 0.45 = 扩池。</p>
+<p>&lt;!-- Narrative sections are appended by the analyst. --&gt;</p>
+<h2>解读</h2>
+<ul>
+<li><strong>统计力已解决</strong>:每格 OOS 177–335 个事件(MVP 是 40),OOS 覆盖数据后 60%、 横跨牛市/暴跌/横盘三种 regime——MVP 的两个设计缺陷(样本量、单切分撞 regime) 都已消除。</li>
+<li><strong>主结论:六个格没有一格的排序能力超出噪声</strong>。加权 spearman 全部落在 −0.096 ~ +0.052(pooled n≈200 的噪声带 ±0.14);MVP val 上的 +0.17 在 walk-forward 下不复现,确认为噪声。</li>
+<li><strong>池级 beta 修正</strong>:all-vs-control 收敛到 −6.7 ~ +5.7bp——MVP 报的&quot;池子跑输随机 35bp&quot;是 val/test 时段特异,拉长到 60% 数据后,压缩池与随机入场无显著差异 (即:既没有负 edge,也没有正 edge)。</li>
+<li><strong>触发点归因(1 号变量)</strong>:同 quantile 下对比 top10 毛收益,dispersion_exit (+60.7 / +48.9bp)一致优于 zone_start(−17.7 / +31.0bp)和 price_breakout (−34.8 / +1.9bp)。方向上支持&quot;决策点应放在压缩结束而非开始&quot;的假设; price_breakout 表现最差,说明宽松定义下的收盘破带多为假突破。</li>
+<li><strong>dispersion_exit top10 苗头未过显著性</strong>:组内置换检验(fold 内同规模随机选取, 5000 次)p=0.044(@0.30)/ 0.113(@0.45),都未达项目 p&lt;0.01 标准;两格事件池 高度重叠,不是独立证据;fold 间 top10 毛收益 −53 ~ +177bp 不稳定。且&quot;挑最好 的格子做检验&quot;本身带事后选择色彩,真实 p 值应更差。<strong>记录为未确认苗头, 不构成 edge 声明。</strong></li>
+<li><strong>扩池归因(2 号变量)</strong>:q0.30→0.45 没有系统性改善排序或 top10;扩池只解决了 样本量,没带来信息。</li>
+</ul>
+<h2>风险与诚实声明</h2>
+<ol>
+<li>zone_start 两格的 <code>compression_duration</code> 特征恒等于 3(去重取 zone 首个达标 bar 的必然结果,MVP 同款退化),该两格实际有效特征数 26;exit 类触发该特征 有效(3–95)。&quot;六格特征集相同&quot;的归因表述有此细微差异。</li>
+<li>复核图的 top/bottom 排序已改为 fold 内百分位(fold 模型分数不可跨 fold 比较); 图标题中的 pred 值为百分位而非原始分。</li>
+<li>折内 early-stopping 的 val 标签窗原可伸进 test 段前 24 根,审查后已右缩 horizon 修复;修复前后网格数字无实质变化。</li>
+<li>funding 成本仍未建模;dispersion_exit 的 NaN 防御语义为&quot;宁漏检不造事件&quot; (真实数据 warmup 段不可达)。</li>
+<li>置换检验只对 dispersion_exit 两格做了(事后选择),其余格未检——因为它们 连方向性苗头都没有。</li>
+<li>holdout(≥2026-05-04)本轮继续 0 消耗;所有结果均为 pre-holdout OOS。</li>
+<li>Owner 授权记录:触发点+扩池+walk-forward 打包改动,owner 2026-08-12 对话中 批准(&quot;1 2 3&quot;);归因由网格结构保留。</li>
+</ol>
+<h2>下一步选项(需 owner 决策)</h2>
+<ul>
+<li><strong>A. 到此为止</strong>:两轮实验的诚实结论是——宽松 MA 压缩池(无论在带内哪个时点 开火)在 ETH 15m 上没有可检出的做空排序 edge;dispersion_exit 的 top10 苗头 未过显著性。</li>
+<li><strong>B. 一次性确认实验</strong>:冻结 dispersion_exit@0.30 当前全部参数,在 holdout (≥2026-05-04,约 8,980 根)上做单次预注册式验证。这是正式 holdout 消耗 (该数据段第 1 次),需要你明确批准;通过标准建议事先定死(top10 净收益&gt;0 且置换 p&lt;0.05)。</li>
+<li><strong>C. 精化 exit 语义再迭代</strong>(如 zone_length 下限、突破方向过滤、结合 Local Signal V2 的平台判据):继续挖会引入多重比较,建议每轮预注册一个变体。</li>
+</ul>
+<p>(P02 结束即停,未进入任何后续阶段。)</p>
+</body>
+</html>

@@ -81,8 +81,18 @@ def _rolling_ols_slope(y: pd.Series, window: int) -> pd.Series:
     return y.rolling(window, min_periods=window).apply(slope, raw=True)
 
 
-def add_features(df: pd.DataFrame, compression_threshold: float) -> pd.DataFrame:
-    """Add all FEATURE_COLUMNS to a frame that already has indicators + dispersion."""
+def add_features(
+    df: pd.DataFrame,
+    compression_threshold: float | None,
+) -> pd.DataFrame:
+    """Add all FEATURE_COLUMNS to a frame that already has indicators + dispersion.
+
+    compression_threshold=None skips the bar-level compression_duration column;
+    the walk-forward pipeline substitutes the event-level zone_length instead
+    (same semantics -- "compression length confirmed at decision time" -- and
+    keeps the rest of the feature matrix threshold-independent so it can be
+    computed once per dataset instead of once per fold).
+    """
     out = df.copy()
     atr = out["atr_14"]
     close = out["close"]
@@ -92,7 +102,8 @@ def add_features(df: pd.DataFrame, compression_threshold: float) -> pd.DataFrame
     out["ma_dispersion_mean_5"] = disp.rolling(5, min_periods=5).mean()
     out["ma_dispersion_min_10"] = disp.rolling(10, min_periods=10).min()
     out["ma_dispersion_slope_5"] = disp - disp.shift(5)
-    out["compression_duration"] = below_streak(disp, compression_threshold).astype("float64")
+    if compression_threshold is not None:
+        out["compression_duration"] = below_streak(disp, compression_threshold).astype("float64")
 
     # --- 10.2 MA direction (ATR-normalised slopes) ---------------------------
     out["ema20_slope_5"] = (out["ema_20"] - out["ema_20"].shift(5)) / atr

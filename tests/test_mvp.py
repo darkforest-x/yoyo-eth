@@ -199,6 +199,112 @@ def test_max_consecutive_close_above_window_capped():
     assert col.iloc[45] == 0  # run fully outside the window
 
 
+# ---- P02 trigger + walk-forward tests ---------------------------------------------------
+
+def _trigger_frame():
+    """Dispersion: in-band bars 10..19 (10 bars), out elsewhere. Close breaks
+    below ma_lower at bar 15 only."""
+    n = 40
+    ts = pd.date_range("2024-01-01", periods=n, freq="15min", tz="UTC")
+    disp = np.where((np.arange(n) >= 10) & (np.arange(n) < 20), 0.5, 2.0)
+    close = np.full(n, 100.0)
+    close[15] = 90.0  # breakout attempt below the band
+    df = pd.DataFrame(
+        {"ts": ts.view("int64") // 10**6, "timestamp": ts, "open": close, "high": close + 1,
+         "low": close - 1, "close": close, "volume": np.ones(n),
+         "ma_dispersion_atr": disp, "ma_upper": 101.0, "ma_lower": 99.0}
+    )
+    return df
+
+
+def test_trigger_zone_start():
+    ev, st = scanner_mod.scan(_trigger_frame(), 1.0, 3, 5, trigger="zone_start")
+    assert ev["decision_pos"].tolist() == [12]  # streak reaches 3 at bar 12
+    assert ev["zone_length"].tolist() == [3]
+
+
+def test_trigger_dispersion_exit():
+    ev, st = scanner_mod.scan(_trigger_frame(), 1.0, 3, 5, trigger="dispersion_exit")
+    assert ev["decision_pos"].tolist() == [20]  # first bar back above threshold
+    assert ev["zone_length"].tolist() == [10]  # the zone that just ended
+
+
+def test_trigger_price_breakout():
+    ev, st = scanner_mod.scan(_trigger_frame(), 1.0, 3, 5, trigger="price_breakout")
+    assert ev["decision_pos"].tolist() == [15]  # close leaves the band inside the zone
+    assert ev["zone_length"].tolist() == [5]  # streak confirmed through bar 14
+
+
+def test_triggers_causal_under_future_mutation():
+    for trig in scanner_mod.TRIGGERS:
+        df1 = _trigger_frame()
+        df2 = df1.copy()
+        df2.loc[df2.index[16:], ["close", "ma_dispersion_atr"]] = 999.0
+        e1, _ = scanner_mod.scan(df1, 1.0, 3, 5, trigger=trig)
+        e2, _ = scanner_mod.scan(df2, 1.0, 3, 5, trigger=trig)
+        keep1 = e1[e1["decision_pos"] <= 15]["decision_pos"].tolist()
+        keep2 = e2[e2["decision_pos"] <= 15]["decision_pos"].tolist()
+        assert keep1 == keep2, trig
+
+
+def test_dispersion_exit_causal_nonempty():
+    """Mutating bars strictly AFTER the exit bar must keep the exit event
+    (non-empty causal assertion; review finding F5)."""
+    df1 = _trigger_frame()  # exit fires at bar 20
+    df2 = df1.copy()
+    df2.loc[df2.index[21:], ["close", "ma_dispersion_atr"]] = 999.0
+    e1, _ = scanner_mod.scan(df1, 1.0, 3, 5, trigger="dispersion_exit")
+    e2, _ = scanner_mod.scan(df2, 1.0, 3, 5, trigger="dispersion_exit")
+    assert e1["decision_pos"].tolist() == [20]
+    assert e2[e2["decision_pos"] <= 20]["decision_pos"].tolist() == [20]
+
+
+def test_dispersion_exit_nan_does_not_fire():
+    """A NaN dispersion bar right after a zone must not fire an exit event.
+    The NaN also resets the streak, so the interrupted zone conservatively
+    produces NO event at all (better a miss than a fabricated exit)."""
+    df = _trigger_frame()
+    df.loc[20, "ma_dispersion_atr"] = np.nan  # zone ends into a NaN bar
+    ev, _ = scanner_mod.scan(df, 1.0, 3, 5, trigger="dispersion_exit")
+    assert ev["decision_pos"].tolist() == []
+
+
+def test_walkforward_split_assignment():
+    """Pin the fold-internal np.select gate logic (review finding F6)."""
+    sys.path.insert(0, str(ROOT / "src"))
+    from yoyo_eth import walkforward as wf  # noqa: F401  (import check)
+
+    inner_val_start, train_end, test_lo, test_hi, gap, hor = 800, 1000, 1000, 1200, 164, 24
+    pos = pd.Series([0, 799, 800, 963, 964, 975, 976, 999, 1000, 1163, 1164, 1199])
+    split = np.select(
+        [
+            pos < inner_val_start,
+            (pos >= inner_val_start + gap) & (pos < train_end - hor),
+            (pos >= test_lo + gap) & (pos < test_hi),
+        ],
+        ["train", "val", "test"],
+        default="dropped",
+    )
+    got = dict(zip(pos, split))
+    assert got[0] == "train" and got[799] == "train"
+    assert got[800] == "dropped" and got[963] == "dropped"      # gap after inner train
+    assert got[964] == "val" and got[975] == "val"
+    assert got[976] == "dropped" and got[999] == "dropped"      # horizon-shrunk right edge
+    assert got[1000] == "dropped" and got[1163] == "dropped"    # gap after test_lo
+    assert got[1164] == "test" and got[1199] == "test"
+
+
+def test_walkforward_folds():
+    sys.path.insert(0, str(ROOT / "src"))
+    from yoyo_eth import walkforward as wf
+
+    folds = wf.build_folds(1000, 4, 0.40)
+    assert folds == [(400, 400, 550), (550, 550, 700), (700, 700, 850), (850, 850, 1000)]
+    # anchored: train always starts at 0 and ends where test begins; slices cover the tail
+    for train_end, lo, hi in folds:
+        assert train_end == lo < hi
+
+
 # ---- Future Mutation Test (doc 16, mandatory) -----------------------------------------
 
 def test_future_mutation():

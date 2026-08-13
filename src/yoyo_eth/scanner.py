@@ -61,27 +61,78 @@ def below_streak(dispersion: pd.Series, threshold: float) -> pd.Series:
     return pd.Series(streak, index=dispersion.index)
 
 
-def scan(df: pd.DataFrame, threshold: float, min_duration: int, cooldown_bars: int) -> tuple[pd.DataFrame, dict]:
-    """Return (events, stats). Events carry the decision bar position + timestamp."""
-    streak = below_streak(df["ma_dispersion_atr"], threshold)
-    raw_positions = np.flatnonzero((streak >= min_duration).to_numpy())
+TRIGGERS = ("zone_start", "dispersion_exit", "price_breakout")
 
-    events = []
+
+def _qualifying_positions(df: pd.DataFrame, threshold: float, min_duration: int, trigger: str):
+    """Raw candidate bar positions + the confirmed zone length at each, per trigger.
+
+    zone_start      : bar where the below-threshold streak first reaches
+                      min_duration (and every later bar of the streak) --
+                      fires at the START of a compression zone (MVP original).
+    dispersion_exit : first bar back ABOVE the threshold after a zone of
+                      >= min_duration bars -- fires when the zone ENDS
+                      (MAs start fanning out).
+    price_breakout  : bar whose close leaves the [ma_lower, ma_upper] band
+                      while the previous bar sat in a confirmed zone -- fires
+                      on the first price escape attempt.
+    All three use only bars <= t. zone_length is the streak length already
+    confirmed at decision time (for zone_start that is min_duration by
+    construction; for the exit triggers, the full length of the ending zone).
+    """
+    streak = below_streak(df["ma_dispersion_atr"], threshold).to_numpy()
+    close = df["close"].to_numpy()
+    prev_streak = np.concatenate([[0], streak[:-1]])
+    if trigger == "zone_start":
+        mask = streak >= min_duration
+        zone_len = streak
+    elif trigger == "dispersion_exit":
+        # explicit ">= threshold" so a NaN dispersion bar (warmup) neither
+        # fires nor impersonates an upward exit (NaN comparisons are False)
+        above = df["ma_dispersion_atr"].to_numpy() >= threshold
+        mask = above & (prev_streak >= min_duration)
+        zone_len = prev_streak
+    elif trigger == "price_breakout":
+        outside = (close > df["ma_upper"].to_numpy()) | (close < df["ma_lower"].to_numpy())
+        mask = outside & (prev_streak >= min_duration)
+        zone_len = prev_streak
+    else:
+        raise ValueError(f"unknown trigger {trigger!r}")
+    pos = np.flatnonzero(mask)
+    return pos, zone_len[pos]
+
+
+def scan(
+    df: pd.DataFrame,
+    threshold: float,
+    min_duration: int,
+    cooldown_bars: int,
+    trigger: str = "zone_start",
+) -> tuple[pd.DataFrame, dict]:
+    """Return (events, stats). Events carry decision position, timestamp and
+    zone_length. Candidate bars closer than cooldown_bars merge into one event
+    whose decision bar is the FIRST qualifying bar of the merged group."""
+    raw_positions, raw_zone_len = _qualifying_positions(df, threshold, min_duration, trigger)
+
+    events, zone_lens = [], []
     prev_pos = None
-    for pos in raw_positions:
+    for pos, zl in zip(raw_positions, raw_zone_len):
         if prev_pos is not None and pos - prev_pos <= cooldown_bars:
             prev_pos = pos  # same event region, extend
             continue
-        events.append(pos)
+        events.append(int(pos))
+        zone_lens.append(int(zl))
         prev_pos = pos
 
     ev = pd.DataFrame(
         {
             "decision_pos": np.asarray(events, dtype=np.int64),
             "decision_ts": df["timestamp"].iloc[events].to_numpy() if events else [],
+            "zone_length": np.asarray(zone_lens, dtype=np.int64),
         }
     )
     stats = {
+        "trigger": trigger,
         "raw_candidate_count": int(len(raw_positions)),
         "dedup_event_count": int(len(ev)),
         "threshold": float(threshold),
