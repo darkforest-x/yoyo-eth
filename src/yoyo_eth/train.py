@@ -24,6 +24,10 @@ def train_model(
         learning_rate=params["learning_rate"],
         n_estimators=params["n_estimators"],
         subsample=params["subsample"],
+        # LightGBM default subsample_freq=0 silently disables row bagging;
+        # iteration_v1 sets 1 explicitly, older configs keep 0 (their recorded
+        # behaviour: subsample was inert). Report the effective params.
+        subsample_freq=params.get("subsample_freq", 0),
         colsample_bytree=params["colsample_bytree"],
         random_state=params["random_state"],
         verbose=-1,

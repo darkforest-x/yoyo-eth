@@ -1,0 +1,21 @@
+{
+  "git_commit": "cd7a311a7d94f597d592f8dfd3e7751e14df4c38",
+  "git_dirty": true,
+  "config_hash": "79ff98565418f7d9",
+  "source_csv_path": "/Users/zhangzc/fable-trading/data/kline_fetched/okx_ETH_USDT_SWAP_15m_41281.csv",
+  "source_csv_sha256": "9cca1f7f5dbb65c5a564c8ccaf452e5a235b1b375199f3826c318f9cc06fab34",
+  "data_end_boundary": "2026-05-04T00:00:00+00:00",
+  "bars_sha256": "15ce4412daa84e6c2aab3d470fc5c61e12efab56887556e9b6d4ee58bcc406d3",
+  "legacy_dataset_sha256": "5720997c06106775d250b2d86aafd7750e702efbf58614b8ae166ac0630e8552",
+  "anchored_dataset_sha256": "0ee5bf4ea8b7c7088da65bee0f96e0589b7cc4e8d57aec323660ab9e351e3c4d",
+  "scanner_threshold": 1.809124214030992,
+  "train_end_ts": "2026-01-23 01:00:00+00:00",
+  "val_end_ts": "2026-03-14 12:15:00+00:00",
+  "python_version": "3.9.6",
+  "pandas_version": "2.3.3",
+  "numpy_version": "2.0.2",
+  "lightgbm_version": "4.6.0",
+  "pyarrow_version": "21.0.0",
+  "random_seed": 42,
+  "generated_at": "2026-08-13T04:13:49.449655+00:00"
+}

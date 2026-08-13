@@ -153,7 +153,7 @@ python3 -m pytest tests/ -q
 
 | item | value |
 |---|---|
-| data | {m['data']['start']} .. {m['data']['end']}, {m['data']['n_bars']} bars, gaps={m['data']['n_gaps']} (holdout >= 2026-05-04 never read) |
+| data | {m['data']['start']} .. {m['data']['end']}, {m['data']['n_bars']} bars, gaps={m['data']['n_gaps']} (rows >= 2026-05-04 excluded right after CSV parsing, before all computation) |
 | folds | {h['n_folds']} anchored, initial train {h['initial_train_frac']:.0%}, OOS = last {1 - h['initial_train_frac']:.0%} in equal slices |
 | embargo gap | {h['gap_bars']} bars; horizon {h['horizon_bars']} bars |
 | threshold freeze | per fold, inner-train bars only (inner val {h['inner_val_frac']:.0%} of train, early stopping only) |

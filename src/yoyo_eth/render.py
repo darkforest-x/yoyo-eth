@@ -42,6 +42,34 @@ def _draw_candles(ax, seg: pd.DataFrame, x0: int) -> None:
     ax.bar(x, body_h, bottom=body_low, width=0.7, color=colors, edgecolor=colors, linewidth=0.4)
 
 
+FORBIDDEN_IN_DECISION_TITLE = ("utility", "mfe", "mae", "gross", "net")
+
+
+def build_review_titles(meta: dict) -> tuple[str, str]:
+    """(decision_title, outcome_title) for one review chart.
+
+    The decision title is BLIND (iteration_v1 Stage A 5.3): identity, time,
+    split, prediction and causal trigger metadata only -- no outcome fields,
+    so the human audit cannot be polluted by the future. The outcome title
+    carries the full outcome. Enforced by tests via FORBIDDEN_IN_DECISION_TITLE.
+    """
+    d = (
+        f"{meta['set_name']} #{meta['rank']} id={meta['candidate_id']} "
+        f"pred={meta['prediction']:.3f} {meta['decision_ts']} ({meta['split']})"
+    )
+    if meta.get("trigger_type"):
+        d += f" trig={meta['trigger_type']}"
+    if meta.get("episode_age") is not None:
+        d += f" ep_age={int(meta['episode_age'])}"
+    o = (
+        d
+        + f" | utility={meta['short_utility']:.3f} mfe={meta['mfe_short']:.2f} "
+        f"mae={meta['mae_short']:.2f} gross={meta['gross_return'] * 1e4:+.1f}bp "
+        f"net={meta['net_return'] * 1e4:+.1f}bp"
+    )
+    return d, o
+
+
 def render_event(
     df: pd.DataFrame,
     decision_pos: int,
@@ -49,13 +77,17 @@ def render_event(
     local_window: int,
     horizon_bars: int,
     entry_price: float,
-    title: str,
+    title_decision: str,
+    title_outcome: str,
     out_decision: Path,
     out_outcome: Path,
 ) -> None:
     start = max(0, decision_pos - context_window + 1)
 
-    for view, end in (("decision", decision_pos), ("outcome", min(len(df) - 1, decision_pos + horizon_bars))):
+    for view, end, title in (
+        ("decision", decision_pos, title_decision),
+        ("outcome", min(len(df) - 1, decision_pos + horizon_bars), title_outcome),
+    ):
         seg = df.iloc[start : end + 1]
         fig, ax = plt.subplots(figsize=(13, 6), dpi=100)
         _draw_candles(ax, seg, start)
@@ -85,6 +117,7 @@ def render_review_sets(
     n_random: int,
     n_bottom: int,
     seed: int,
+    dynamic_set_names: bool = False,
 ) -> dict:
     """Render Top / middle-random / Bottom sets ranked by model prediction."""
     ranked = ds_scored.sort_values("prediction", ascending=False).reset_index(drop=True)
@@ -95,10 +128,14 @@ def render_review_sets(
     rng = np.random.default_rng(seed)
     take_mid = middle.sample(n=min(n_random, len(middle)), random_state=rng.integers(0, 2**31 - 1)) if len(middle) else middle
 
+    if dynamic_set_names:
+        names = (f"top{n_top}", f"random{len(take_mid)}", f"bottom{n_bottom}")
+    else:
+        names = ("top50", "random50", "bottom50")
     sets = {
-        "top50": ranked.head(n_top),
-        "random50": take_mid.sort_values("prediction", ascending=False),
-        "bottom50": ranked.tail(n_bottom),
+        names[0]: ranked.head(n_top),
+        names[1]: take_mid.sort_values("prediction", ascending=False),
+        names[2]: ranked.tail(n_bottom),
     }
     counts = {}
     for name, subset in sets.items():
@@ -112,13 +149,25 @@ def render_review_sets(
         for i, row in enumerate(subset.itertuples()):
             ts = pd.Timestamp(row.decision_ts).strftime("%Y%m%d_%H%M")
             fname = f"{i:03d}_pos{row.decision_pos}_{ts}.png"
-            title = (
-                f"{name} #{i} pred={row.prediction:.3f} utility={row.short_utility:.3f} "
-                f"mfe={row.mfe_short:.2f} mae={row.mae_short:.2f} {row.decision_ts} ({row.split})"
-            )
+            meta = {
+                "set_name": name,
+                "rank": i,
+                "candidate_id": getattr(row, "event_id", row.decision_pos),
+                "prediction": row.prediction,
+                "decision_ts": row.decision_ts,
+                "split": row.split,
+                "trigger_type": getattr(row, "trigger_type", None),
+                "episode_age": getattr(row, "episode_age_at_decision", None),
+                "short_utility": row.short_utility,
+                "mfe_short": row.mfe_short,
+                "mae_short": row.mae_short,
+                "gross_return": row.gross_return,
+                "net_return": row.net_return,
+            }
+            title_d, title_o = build_review_titles(meta)
             render_event(
                 df, int(row.decision_pos), context_window, local_window, horizon_bars,
-                float(row.entry_price), title, ddir / fname, odir / fname,
+                float(row.entry_price), title_d, title_o, ddir / fname, odir / fname,
             )
         counts[name] = len(subset)
     return counts

@@ -306,7 +306,7 @@ python3 -m pytest tests/ -q
 | timeframe | {m['timeframe']} |
 | data range | {m['data']['start']} .. {m['data']['end']} |
 | bars | {m['data']['n_bars']} (gaps: {m['data']['n_gaps']}) |
-| data end boundary | {m['data']['data_end_boundary']} (fable-trading frozen holdout start; bars at/after it never read) |
+| data end boundary | {m['data']['data_end_boundary']} (fable-trading frozen holdout start; rows at/after it are excluded right after CSV parsing, before indicators/scanner/features/labels/training) |
 | scanner threshold | {m['scanner']['threshold']:.4f} = q{m['scanner']['threshold_info']['quantile']} of ma_dispersion_atr on train bars only |
 | raw candidates | {m['scanner']['raw_candidate_count']} |
 | dedup events | {m['scanner']['dedup_event_count']} |

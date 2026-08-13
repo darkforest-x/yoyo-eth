@@ -102,8 +102,22 @@ def matched_random_control(
         {"decision_pos": np.asarray(picks, dtype=np.int64),
          "decision_ts": df["timestamp"].iloc[picks].to_numpy()}
     )
+    requested = len(split_ds) * n_per_event
     ctrl = add_labels(ctrl_events, df, horizon_bars, mae_penalty, round_trip_cost)
+    # Iteration_v1 Stage A gate: every draw comes from the pre-filtered pool
+    # (complete horizon + valid ATR), so labeling must keep every row. A
+    # mismatch means the duplicate-fanout bug (or a pool bug) is back -- fail
+    # the run rather than publish untrustworthy control numbers.
+    if len(ctrl) != requested:
+        raise RuntimeError(
+            f"matched_random_control: actual={len(ctrl)} != requested={requested} "
+            "(duplicate-fanout or pool completeness bug)"
+        )
     stats = _group_stats(ctrl)
+    stats["requested_sample_count"] = int(requested)
+    stats["actual_sample_count"] = int(len(ctrl))
+    stats["unique_decision_pos_count"] = int(ctrl_events["decision_pos"].nunique())
+    stats["duplicate_draw_count"] = int(requested - ctrl_events["decision_pos"].nunique())
     stats["n_fallback_events"] = int(n_fallback)
     stats["n_per_event"] = int(n_per_event)
     return stats

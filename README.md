@@ -23,9 +23,12 @@ python3 -m pytest tests/ -q                                   # incl. Future Mut
   regressor on `short_utility = MFE_short − 0.7·MAE_short` (6h horizon).
 - Chronological split 70/15/15 with `max(context_window, horizon_bars)` embargo
   gaps; scanner threshold frozen from TRAIN bars only.
-- Data is read from the fable-trading kline cache (read-only) and cut at
-  `2026-05-04` — the parent project's frozen holdout start. Holdout bars are
-  never loaded.
+- Data is read from the fable-trading kline cache (read-only). Rows at or
+  after the frozen holdout boundary (`2026-05-04`) are excluded before
+  indicator calculation, scanner statistics, feature construction, label
+  construction and model training. (The raw CSV is fully read once; the cut
+  happens immediately after parsing — this is a code-level exclusion, not
+  physical isolation.)
 - ~27 causal features (compression, MA slopes, price-vs-cluster, simple
   reclaim/rejection, trend background, bar/volatility). Only labels see the
   future; `tests/test_mvp.py::test_future_mutation` enforces this.

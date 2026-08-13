@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>ITERATION V1 — Correctness Repair + Causal Anchor</title>
+<style>
+:root { color-scheme: light dark; }
+body { max-width: 62rem; margin: 0 auto; padding: 2rem 1.2rem 5rem;
+       font: 16px/1.75 -apple-system, "PingFang SC", "Hiragino Sans GB",
+             "Microsoft YaHei", system-ui, sans-serif;
+       color: #1a1a1a; background: #fff; word-wrap: break-word; }
+h1 { font-size: 1.9rem; border-bottom: 3px solid #1976d2; padding-bottom: .4rem;
+     margin: 2.4rem 0 1rem; }
+h2 { font-size: 1.45rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3rem;
+     margin: 2rem 0 .8rem; }
+h3 { font-size: 1.15rem; margin: 1.5rem 0 .6rem; }
+h4 { font-size: 1rem; margin: 1.2rem 0 .5rem; color: #444; }
+table { border-collapse: collapse; margin: 1rem 0; font-size: .92rem;
+        display: block; overflow-x: auto; max-width: 100%; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .7rem; text-align: left;
+         white-space: nowrap; }
+th { background: #f2f5f8; font-weight: 600; }
+tr:nth-child(even) td { background: #fafbfc; }
+code { background: #f2f5f8; padding: .12em .35em; border-radius: 4px;
+       font: .88em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+pre { background: #f6f8fa; padding: .9rem 1.1rem; border-radius: 8px;
+      overflow-x: auto; border: 1px solid #e3e8ee; }
+pre code { background: none; padding: 0; font-size: .85rem; }
+blockquote { margin: 1rem 0; padding: .6rem 1rem; border-left: 4px solid #1976d2;
+             background: #f5f9ff; color: #2c3e50; }
+hr { border: 0; border-top: 1px solid #d0d7de; margin: 2.5rem 0; }
+a { color: #1976d2; }
+img { display: block; max-width: 100%; height: auto; margin: 1rem 0;
+      border: 1px solid #d0d7de; border-radius: 8px; }
+ul, ol { padding-left: 1.5rem; }
+li { margin: .25rem 0; }
+@media (prefers-color-scheme: dark) {
+  body { color: #e6e6e6; background: #14171a; }
+  h2, th, td, hr, pre { border-color: #30363d; }
+  th { background: #1c2128; } tr:nth-child(even) td { background: #191d21; }
+  code, pre { background: #1c2128; } h4 { color: #b8c0c8; }
+  blockquote { background: #172029; color: #cbd5e0; }
+}
+</style>
+</head>
+<body>
+<h1>ITERATION V1 — Correctness Repair + Causal Anchor</h1>
+<p>状态:<strong>completed</strong>。复现:</p>
+<pre><code>
+cd /Users/zhangzc/yoyo-eth
+python3 scripts/run_iteration_v1.py --config configs/iteration_v1.yaml --force
+python3 -m pytest tests/ -q
+</code></pre>
+<h2>Setup</h2>
+<table><thead><tr>
+<th>item</th>
+<th>value</th>
+</tr></thead><tbody>
+<tr><td>data</td><td>2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0</td></tr>
+<tr><td>boundary</td><td>2026-05-04T00:00:00+00:00(边界后行在 CSV 解析后、任何指标/扫描/特征/标签/训练之前剔除)</td></tr>
+<tr><td>threshold</td><td>1.8091 = q0.3 on train bars only</td></tr>
+<tr><td>split</td><td>train_end=22610 (2026-01-23 01:00:00+00:00), val_end=27455 (2026-03-14 12:15:00+00:00), gap=164</td></tr>
+<tr><td>model</td><td>LightGBM fixed params, subsample=0.8 subsample_freq=1 seed=42</td></tr>
+<tr><td>manifest</td><td>git=cd7a311a dirty=True csv_sha=9cca1f7f5dbb..</td></tr>
+</tbody></table>
+<h2>正确性指标(doc 9.1)</h2>
+<table><thead><tr>
+<th>item</th>
+<th>value</th>
+</tr></thead><tbody>
+<tr><td>Legacy raw candidates</td><td>8737</td></tr>
+<tr><td>Legacy dedup events</td><td>321</td></tr>
+<tr><td>Compression episodes</td><td>330</td></tr>
+<tr><td>Episodes with trigger</td><td>233</td></tr>
+<tr><td>Episodes without trigger</td><td>97</td></tr>
+<tr><td>Anchored events</td><td>233</td></tr>
+<tr><td>Legacy splits</td><td>{&#x27;train&#x27;: 229, &#x27;val&#x27;: 44, &#x27;test&#x27;: 40}</td></tr>
+<tr><td>Anchored splits</td><td>{&#x27;train&#x27;: 171, &#x27;val&#x27;: 31, &#x27;test&#x27;: 27}</td></tr>
+</tbody></table>
+<h2>语义对齐(doc 9.2)</h2>
+<table><thead><tr>
+<th>quantity</th>
+<th>arm</th>
+<th>mean</th>
+<th>median</th>
+<th>p25</th>
+<th>p75</th>
+</tr></thead><tbody>
+<tr><td>compression_duration_at_decision</td><td>legacy</td><td>+3.000</td><td>+3.000</td><td>+3.000</td><td>+3.000</td></tr>
+<tr><td>compression_duration_at_decision</td><td>anchored</td><td>+8.930</td><td>+6.000</td><td>+4.000</td><td>+11.000</td></tr>
+<tr><td>episode_age_at_decision</td><td>legacy</td><td>+2.000</td><td>+2.000</td><td>+2.000</td><td>+2.000</td></tr>
+<tr><td>episode_age_at_decision</td><td>anchored</td><td>+8.013</td><td>+5.000</td><td>+3.000</td><td>+10.000</td></tr>
+<tr><td>failed_reclaim_count_10</td><td>legacy</td><td>+3.885</td><td>+4.000</td><td>+2.000</td><td>+6.000</td></tr>
+<tr><td>failed_reclaim_count_10</td><td>anchored</td><td>+4.210</td><td>+4.000</td><td>+2.000</td><td>+6.000</td></tr>
+<tr><td>cluster_penetration_count_10</td><td>legacy</td><td>+1.693</td><td>+1.000</td><td>+1.000</td><td>+3.000</td></tr>
+<tr><td>cluster_penetration_count_10</td><td>anchored</td><td>+1.847</td><td>+1.000</td><td>+1.000</td><td>+3.000</td></tr>
+<tr><td>ema20_slope_5</td><td>legacy</td><td>-0.064</td><td>-0.024</td><td>-0.506</td><td>+0.384</td></tr>
+<tr><td>ema20_slope_5</td><td>anchored</td><td>-0.398</td><td>-0.320</td><td>-0.575</td><td>-0.128</td></tr>
+<tr><td>close_to_cluster_atr</td><td>legacy</td><td>-0.148</td><td>-0.104</td><td>-1.146</td><td>+0.838</td></tr>
+<tr><td>close_to_cluster_atr</td><td>anchored</td><td>-1.451</td><td>-1.169</td><td>-1.848</td><td>-0.783</td></tr>
+<tr><td>ma_dispersion_slope_5</td><td>legacy</td><td>-0.638</td><td>-0.575</td><td>-0.838</td><td>-0.357</td></tr>
+<tr><td>ma_dispersion_slope_5</td><td>anchored</td><td>-0.338</td><td>-0.336</td><td>-0.580</td><td>-0.083</td></tr>
+</tbody></table>
+<p>按 trigger_type(anchored,val+test+train 全体):</p>
+<table><thead><tr>
+<th>trigger_type</th>
+<th>n</th>
+<th>mean utility</th>
+<th>mean net</th>
+</tr></thead><tbody>
+<tr><td>compression_exit_down</td><td>12</td><td>+0.429</td><td>-29.7bp</td></tr>
+<tr><td>compression_exit_down+failed_reclaim</td><td>1</td><td>-1.493</td><td>-173.4bp</td></tr>
+<tr><td>compression_exit_down+local_low_break</td><td>1</td><td>+3.442</td><td>+123.7bp</td></tr>
+<tr><td>failed_reclaim</td><td>98</td><td>+1.258</td><td>-8.4bp</td></tr>
+<tr><td>failed_reclaim+local_low_break</td><td>52</td><td>+0.664</td><td>-21.8bp</td></tr>
+<tr><td>local_low_break</td><td>65</td><td>+1.218</td><td>+22.0bp</td></tr>
+</tbody></table>
+<h2>Legacy 模型结果</h2>
+<table><thead><tr>
+<th>split</th>
+<th>n</th>
+<th>pearson</th>
+<th>spearman</th>
+<th>group</th>
+<th>n</th>
+<th>mean util</th>
+<th>median util</th>
+<th>mean MFE</th>
+<th>mean MAE</th>
+<th>gross</th>
+<th>net@0.001</th>
+<th>net@0.002</th>
+<th>pos-net@0.001</th>
+<th>flag</th>
+</tr></thead><tbody>
+<tr><td>validation</td><td>44</td><td>+0.084</td><td>+0.008</td><td>top_10pct</td><td>5</td><td>+0.198</td><td>+0.104</td><td>1.31</td><td>1.58</td><td>-14.9bp</td><td>-24.9bp</td><td>-34.9bp</td><td>0.40</td><td>LOW_SAMPLE</td></tr>
+<tr><td>validation</td><td>44</td><td>+0.084</td><td>+0.008</td><td>top_20pct</td><td>9</td><td>+0.032</td><td>+0.104</td><td>1.50</td><td>2.10</td><td>-22.8bp</td><td>-32.8bp</td><td>-42.8bp</td><td>0.33</td><td>LOW_SAMPLE</td></tr>
+<tr><td>validation</td><td>44</td><td>+0.084</td><td>+0.008</td><td>all</td><td>44</td><td>+0.711</td><td>+0.441</td><td>2.57</td><td>2.66</td><td>-14.6bp</td><td>-24.6bp</td><td>-34.6bp</td><td>0.43</td><td></td></tr>
+<tr><td>validation</td><td>44</td><td></td><td></td><td>matched control</td><td>880</td><td>+1.105</td><td>+0.788</td><td>2.95</td><td>2.63</td><td>+18.2bp</td><td>+8.2bp</td><td>-1.8bp</td><td>0.52</td><td>req=880 uniq=787</td></tr>
+<tr><td>test</td><td>40</td><td>-0.035</td><td>+0.000</td><td>top_10pct</td><td>4</td><td>+2.099</td><td>+0.081</td><td>3.69</td><td>2.28</td><td>-15.3bp</td><td>-25.3bp</td><td>-35.3bp</td><td>0.50</td><td>LOW_SAMPLE</td></tr>
+<tr><td>test</td><td>40</td><td>-0.035</td><td>+0.000</td><td>top_20pct</td><td>8</td><td>-0.488</td><td>-0.418</td><td>2.34</td><td>4.04</td><td>-87.7bp</td><td>-97.7bp</td><td>-107.7bp</td><td>0.38</td><td>LOW_SAMPLE</td></tr>
+<tr><td>test</td><td>40</td><td>-0.035</td><td>+0.000</td><td>all</td><td>40</td><td>+0.019</td><td>-0.145</td><td>2.48</td><td>3.51</td><td>-39.1bp</td><td>-49.1bp</td><td>-59.1bp</td><td>0.35</td><td></td></tr>
+<tr><td>test</td><td>40</td><td></td><td></td><td>matched control</td><td>800</td><td>+0.816</td><td>+0.494</td><td>2.81</td><td>2.84</td><td>-2.6bp</td><td>-12.6bp</td><td>-22.6bp</td><td>0.45</td><td>req=800 uniq=720</td></tr>
+</tbody></table>
+<h2>Anchored 模型结果</h2>
+<table><thead><tr>
+<th>split</th>
+<th>n</th>
+<th>pearson</th>
+<th>spearman</th>
+<th>group</th>
+<th>n</th>
+<th>mean util</th>
+<th>median util</th>
+<th>mean MFE</th>
+<th>mean MAE</th>
+<th>gross</th>
+<th>net@0.001</th>
+<th>net@0.002</th>
+<th>pos-net@0.001</th>
+<th>flag</th>
+</tr></thead><tbody>
+<tr><td>validation</td><td>31</td><td>+0.374</td><td>+0.465</td><td>top_10pct</td><td>4</td><td>+0.461</td><td>+0.292</td><td>1.54</td><td>1.54</td><td>-35.3bp</td><td>-45.3bp</td><td>-55.3bp</td><td>0.25</td><td>LOW_SAMPLE</td></tr>
+<tr><td>validation</td><td>31</td><td>+0.374</td><td>+0.465</td><td>top_20pct</td><td>7</td><td>+1.526</td><td>+0.481</td><td>2.54</td><td>1.44</td><td>+17.1bp</td><td>+7.1bp</td><td>-2.9bp</td><td>0.43</td><td>LOW_SAMPLE</td></tr>
+<tr><td>validation</td><td>31</td><td>+0.374</td><td>+0.465</td><td>all</td><td>31</td><td>+0.296</td><td>+0.090</td><td>2.38</td><td>2.98</td><td>-27.9bp</td><td>-37.9bp</td><td>-47.9bp</td><td>0.29</td><td></td></tr>
+<tr><td>validation</td><td>31</td><td></td><td></td><td>matched control</td><td>620</td><td>+1.131</td><td>+0.939</td><td>2.99</td><td>2.66</td><td>+14.1bp</td><td>+4.1bp</td><td>-5.9bp</td><td>0.54</td><td>req=620 uniq=581</td></tr>
+<tr><td>test</td><td>27</td><td>-0.074</td><td>-0.218</td><td>top_10pct</td><td>3</td><td>-0.027</td><td>+1.472</td><td>3.07</td><td>4.42</td><td>-111.0bp</td><td>-121.0bp</td><td>-131.0bp</td><td>0.33</td><td>LOW_SAMPLE</td></tr>
+<tr><td>test</td><td>27</td><td>-0.074</td><td>-0.218</td><td>top_20pct</td><td>6</td><td>-0.456</td><td>-0.412</td><td>2.27</td><td>3.89</td><td>-129.8bp</td><td>-139.8bp</td><td>-149.8bp</td><td>0.17</td><td>LOW_SAMPLE</td></tr>
+<tr><td>test</td><td>27</td><td>-0.074</td><td>-0.218</td><td>all</td><td>27</td><td>+2.044</td><td>+0.419</td><td>3.94</td><td>2.71</td><td>-8.7bp</td><td>-18.7bp</td><td>-28.7bp</td><td>0.33</td><td></td></tr>
+<tr><td>test</td><td>27</td><td></td><td></td><td>matched control</td><td>540</td><td>+0.870</td><td>+0.636</td><td>2.89</td><td>2.89</td><td>-3.3bp</td><td>-13.3bp</td><td>-23.3bp</td><td>0.45</td><td>req=540 uniq=504</td></tr>
+</tbody></table>
+<p>&lt;!-- Analyst narrative (15 questions, FACT/OBSERVATION/HYPOTHESIS/DECISION) appended below. --&gt;</p>
+<h2>15 问逐条回答</h2>
+<ol>
+<li><strong>随机对照重复 merge bug 是否确认存在?</strong> FACT:存在。<code>matched_random_control</code> 用 <code>replace=True</code> 抽样后,旧 <code>add_labels</code> 按可重复的 <code>decision_pos</code> merge,k 次重复 膨胀为 k×k 行。MVP 报告的 1076(应 880)/978(应 800)即该 bug 的直接证据。</li>
+<li><strong>修复前后 control sample count?</strong> FACT:修复前 validation 1076 / test 978(MVP 报告存档);修复后 validation 880 / test 800,由运行时断言强制(不等即整轮失败)。</li>
+<li><strong>修复后 validation 是否严格 880?</strong> FACT:是(requested=actual=880,unique=787, 重复抽样 93 次为合法 bootstrap 重复,各带独立权重)。</li>
+<li><strong>修复后 test 是否严格 800?</strong> FACT:是(800/800,unique=720)。</li>
+<li><strong>Legacy decision bar 平均在 episode 什么位置?</strong> FACT:恒在 episode 第 3 根 (qualification 那根,episode_age=2,compression_duration=3,全体常数)。episode 中位总长 22 根 → legacy 永远在压缩带<strong>开头 ~14%</strong> 处决策。</li>
+<li><strong>Anchored 比 Legacy 晚多少根?</strong> FACT:平均晚 <strong>6.0 根</strong>(episode_age 均值 8.0 vs 2.0;中位 5 vs 2)。</li>
+<li><strong>三种 trigger 数量与占比?</strong> FACT(入数据集的 229 事件):failed_reclaim 98 (42.8%)、local_low_break 65(28.4%)、failed_reclaim+local_low_break 52 (22.7%)、compression_exit_down 12(5.2%)、双组合各 1(0.9%)。 compression_exit_down 稀少:带内价格通常已先触发 A/C。</li>
+<li><strong>语义特征分布是否更合理?</strong> FACT:<code>compression_duration_at_decision</code> 从常数 3 变为 分布(median 6, p75 ~11);<code>close_to_cluster_atr</code> −0.15→−1.45(决策时价格已破位到 簇下方 1.5 ATR);<code>ema20_slope_5</code> −0.06→−0.40(短均线明确下弯,部分由触发条件 构造保证)。OBSERVATION:<code>failed_reclaim_count_10</code>/<code>cluster_penetration_count_10</code> 两臂差异不大(3.9→4.2 / 1.7→1.8)——回抽失败的&quot;密度&quot;没变,变的是决策时点相对 破位的位置。</li>
+<li><strong>Legacy 排序结果?</strong> FACT:val ρ=+0.008(p=0.96)、test ρ=+0.000(p=1.00)—— 本轮启用 subsample_freq=1 后 Legacy 彻底无排序能力(MVP 基线的 +0.166/−0.068 本就在噪声内)。Top10 全部 LOW_SAMPLE。</li>
+<li><strong>Anchored 排序结果?</strong> FACT:val ρ=+0.465(p=0.01, n=31)、test ρ=−0.218 (p=0.27, n=27)。OBSERVATION:val 显著为正但 test 翻负;n=31/27 的噪声带约 ±0.36/±0.39,不构成稳定排序能力的证据。HYPOTHESIS:val 段(2026-01→02,下行) 与 anchored 触发语义同向,test 段(2026-02→05,横盘转震荡)不同向——regime 依赖,需 walk-forward 复检。</li>
+<li><strong>两臂相对 matched control?</strong> FACT:Legacy all−ctrl:val −32.8bp / test −36.5bp; Anchored all−ctrl:val −42.0bp / test −5.4bp。两臂池级都不跑赢同月同波动桶随机 入场;MVP 报告中 −34.5/−37.1bp 的旧值作废,以本轮修复后数字为准(方向结论 不变)。</li>
+<li><strong>Anchored 是否改善人工视觉语义一致性?</strong> OBSERVATION:决策图(盲审版,无任何 未来字段)抽样显示 anchored 决策点落在&quot;密集平台边缘破位/回抽失败&quot;处,与目标 形态语义显著更接近(legacy 落在带内早期,盘面尚无方向)。最终裁决需 owner 翻阅 <code>reports/iteration_v1/review_charts/</code>(legacy/anchored × validation/test,各 top/random/bottom ≤20 张,decision 与 outcome 同名对应)。</li>
+<li><strong>当前结果是否具备统计力?</strong> FACT:不具备。anchored val/test = 31/27,Top10 组 3–4 个样本(全 LOW_SAMPLE 标记),分 trigger × split 后每格 1–12 个样本。本轮 回答的是语义对齐与正确性,不是收益判断。</li>
+<li><strong>最大剩余问题?</strong> anchored 事件量(233,进数据集 229)在单一 70/15/15 切分下 val/test 太薄;且 val(下行)与 test(横盘)regime 不同,任何排序结论都被切分 位置绑架。次要:6h 固定 horizon 对&quot;破位后行情&quot;可能过短/过长,未验证。</li>
+<li><strong>下一轮建议?</strong> DECISION(建议,owner 定):优先<strong>不改 Anchor、不改标签</strong>,把 anchored 管道接入已有的 4 折 walk-forward harness(P02 基建现成,OOS 可到 ~200 事件),复检 val 上 ρ=+0.465 是否幸存;若幸存,再谈标签/路径工作。若不 幸存,该语义在 6h short_utility 下按停止规则处理。</li>
+</ol>
+<h2>风险与诚实声明</h2>
+<ul>
+<li>基线偏移:任务书基线 55ddf5d,实际基于 cd7a311(P02 已并入;未覆盖任何 MVP 产物)。</li>
+<li>P02 的 per-fold 对照组数字带同一 fanout bug(每折事件数 × 20 vs 实报偏大), 本轮修复后函数已正确,但 P02 未重跑;其 all-vs-ctrl(−6.7~+5.7bp)量级应视为 近似。P02 的池化 spearman 结论不受影响(不依赖对照组)。</li>
+<li>本轮启用 subsample_freq=1(修复 5.4)使模型与 MVP/P02 的模型不逐位可比;两臂 之间严格可比(同参数同种子)。</li>
+<li>anchored val ρ=+0.465 (p=0.01) 是 n=31 的单切分结果,且本轮同时看了 val 和 test (test 翻负)——按纪律只记 OBSERVATION,不作 edge 声明。</li>
+<li>trigger 条件含 <code>ema20_slope_5 &lt; 0</code>,语义对齐指标中该特征的两臂差异部分是构造使然, 已在第 8 问注明。</li>
+<li>holdout(≥2026-05-04)0 消耗;数据在 CSV 解析后立即剔除边界后行——是代码级排除, 非物理隔离。</li>
+<li>第三轮独立对抗审查:无 CRITICAL/HIGH;4 个低危健壮性问题(空触发崩溃、error-dict 防护、成本列硬编码、测试场景构造)已修复,数字逐位不变。</li>
+</ul>
+<p>(iteration_v1 到此停止:未改标签、未扫超参、未加特征、未动 holdout、未接执行层。)</p>
+</body>
+</html>
