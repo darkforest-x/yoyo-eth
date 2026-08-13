@@ -13,7 +13,7 @@ python3 -m pytest tests/ -q
 
 | item | value |
 |---|---|
-| data | 2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0 (holdout >= 2026-05-04 never read) |
+| data | 2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0 (rows >= 2026-05-04 excluded right after CSV parsing, before all computation) |
 | folds | 4 anchored, initial train 40%, OOS = last 60% in equal slices |
 | embargo gap | 164 bars; horizon 24 bars |
 | threshold freeze | per fold, inner-train bars only (inner val 15% of train, early stopping only) |
@@ -25,12 +25,12 @@ python3 -m pytest tests/ -q
 
 | cell | OOS n | rho per fold | rho wmean | top10 gross | top10 net@0.001 / top10 net@0.002 | all gross | control gross | all-ctrl | top10-ctrl |
 |---|---|---|---|---|---|---|---|---|---|
-| zone_start@0.3 | 195 | [-0.132, 0.202, -0.04, -0.225] | -0.035 | -17.7bp | -28bp / -38bp | +14.1bp | +8.4bp | +5.7bp | -26.2bp |
-| zone_start@0.45 | 177 | [0.052, -0.083, 0.011, 0.255] | +0.052 | +31.0bp | +21bp / +11bp | +7.8bp | +14.4bp | -6.7bp | +16.6bp |
-| dispersion_exit@0.3 | 207 | [0.025, 0.006, 0.015, 0.117] | +0.037 | +60.7bp | +51bp / +41bp | +2.8bp | +6.1bp | -3.4bp | +54.6bp |
-| dispersion_exit@0.45 | 192 | [-0.085, -0.135, 0.184, -0.011] | -0.012 | +48.9bp | +39bp / +29bp | +9.3bp | +9.0bp | +0.3bp | +39.9bp |
-| price_breakout@0.3 | 270 | [-0.072, 0.029, -0.273, -0.103] | -0.096 | -34.8bp | -45bp / -55bp | +8.2bp | +6.9bp | +1.3bp | -41.7bp |
-| price_breakout@0.45 | 335 | [0.003, -0.127, -0.084, -0.023] | -0.059 | +1.9bp | -8bp / -18bp | +5.8bp | +9.4bp | -3.6bp | -7.5bp |
+| zone_start@0.3 | 195 | [-0.132, 0.202, -0.04, -0.225] | -0.035 | -17.7bp | -28bp / -38bp | +14.1bp | +9.3bp | +4.8bp | -27.0bp |
+| zone_start@0.45 | 177 | [0.052, -0.083, 0.011, 0.255] | +0.052 | +31.0bp | +21bp / +11bp | +7.8bp | +11.7bp | -3.9bp | +19.3bp |
+| dispersion_exit@0.3 | 207 | [0.025, 0.006, 0.015, 0.117] | +0.037 | +60.7bp | +51bp / +41bp | +2.8bp | +4.7bp | -1.9bp | +56.0bp |
+| dispersion_exit@0.45 | 192 | [-0.085, -0.135, 0.184, -0.011] | -0.012 | +48.9bp | +39bp / +29bp | +9.3bp | +8.2bp | +1.1bp | +40.6bp |
+| price_breakout@0.3 | 270 | [-0.072, 0.029, -0.273, -0.103] | -0.096 | -34.8bp | -45bp / -55bp | +8.2bp | +8.3bp | -0.1bp | -43.1bp |
+| price_breakout@0.45 | 335 | [0.003, -0.127, -0.084, -0.023] | -0.059 | +1.9bp | -8bp / -18bp | +5.8bp | +8.9bp | -3.1bp | -7.0bp |
 
 triggers: zone_start = 压缩带开头开火(MVP 原版,对照); dispersion_exit = 带向上穿出
 (压缩结束); price_breakout = 收盘首次离开 [ma_lower, ma_upper](突破尝试)。

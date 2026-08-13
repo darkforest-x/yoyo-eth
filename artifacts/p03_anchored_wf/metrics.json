@@ -1,0 +1,216 @@
+{
+  "question": "does iteration_v1 anchored val rho=+0.465 (n=31) survive 4-fold walk-forward?",
+  "owner_authorization": "items 1-3 approved in conversation 2026-08-13",
+  "data": {
+    "start": "2025-06-01 12:45:00+00:00",
+    "end": "2026-05-03 23:45:00+00:00",
+    "n_bars": 32301
+  },
+  "harness": {
+    "folds": [
+      [
+        12920,
+        12920,
+        17765
+      ],
+      [
+        17765,
+        17765,
+        22610
+      ],
+      [
+        22610,
+        22610,
+        27455
+      ],
+      [
+        27455,
+        27455,
+        32301
+      ]
+    ],
+    "gap_bars": 164,
+    "quantile": 0.3,
+    "model": {
+      "num_leaves": 15,
+      "max_depth": 5,
+      "learning_rate": 0.03,
+      "n_estimators": 300,
+      "subsample": 0.8,
+      "subsample_freq": 1,
+      "colsample_bytree": 0.8,
+      "random_state": 42,
+      "early_stopping_rounds": 50
+    },
+    "anchor": {
+      "exit_confirm_bars": 2,
+      "local_low_window": 10
+    }
+  },
+  "arms": {
+    "legacy_zone_start": {
+      "n_folds_used": 4,
+      "n_folds_with_control": 4,
+      "n_oos_events": 195,
+      "per_fold_spearman": [
+        -0.129,
+        0.029,
+        0.013,
+        -0.249
+      ],
+      "weighted_mean_spearman": -0.07463632294222629,
+      "pooled_spearman_secondary": -0.14471052097147433,
+      "groups": {
+        "top_10pct": {
+          "sample_count": 21,
+          "mean_short_utility": 1.509761533131898,
+          "median_short_utility": 1.1147301636681477,
+          "mean_mfe": 3.3166554921974303,
+          "mean_mae": 2.5812770843793333,
+          "mean_gross_return": 0.0032496090044755593,
+          "mean_net_return": 0.0022496090044755598,
+          "positive_net_return_ratio": 0.5238095238095238
+        },
+        "top_20pct": {
+          "sample_count": 40,
+          "mean_short_utility": 0.7244984836549293,
+          "median_short_utility": 0.5700574136065253,
+          "mean_mfe": 2.8229068331060168,
+          "mean_mae": 2.9977262135015534,
+          "mean_gross_return": -0.0002521049849953643,
+          "mean_net_return": -0.001252104984995365,
+          "positive_net_return_ratio": 0.425
+        },
+        "all": {
+          "sample_count": 195,
+          "mean_short_utility": 1.168213073319419,
+          "median_short_utility": 0.7505331789825895,
+          "mean_mfe": 3.036140345946547,
+          "mean_mae": 2.668467532324468,
+          "mean_gross_return": 0.0014125118937126611,
+          "mean_net_return": 0.00041251189371266085,
+          "positive_net_return_ratio": 0.4307692307692308
+        }
+      },
+      "control_mean_gross_return": 0.0009300072923645262,
+      "per_fold_counts": [
+        {
+          "train": 100,
+          "val": 16,
+          "test": 53
+        },
+        {
+          "train": 143,
+          "val": 26,
+          "test": 55
+        },
+        {
+          "train": 183,
+          "val": 41,
+          "test": 47
+        },
+        {
+          "train": 234,
+          "val": 41,
+          "test": 40
+        }
+      ],
+      "per_fold_threshold": [
+        1.883,
+        1.882,
+        1.841,
+        1.806
+      ],
+      "per_fold_best_iteration": [
+        9,
+        2,
+        66,
+        7
+      ],
+      "edge_all_vs_control_bp": 4.82504601348135,
+      "edge_top10_vs_control_bp": 23.19601712111033
+    },
+    "anchored": {
+      "n_folds_used": 4,
+      "n_folds_with_control": 4,
+      "n_oos_events": 140,
+      "per_fold_spearman": [
+        0.085,
+        0.064,
+        0.219,
+        -0.151
+      ],
+      "weighted_mean_spearman": 0.06549160524279718,
+      "pooled_spearman_secondary": 0.06358461912536827,
+      "groups": {
+        "top_10pct": {
+          "sample_count": 16,
+          "mean_short_utility": 1.323716146961716,
+          "median_short_utility": 0.7460744240802921,
+          "mean_mfe": 2.7488219729422556,
+          "mean_mae": 2.035865465686485,
+          "mean_gross_return": 0.003573209015051181,
+          "mean_net_return": 0.00257320901505118,
+          "positive_net_return_ratio": 0.5625
+        },
+        "top_20pct": {
+          "sample_count": 30,
+          "mean_short_utility": 1.3200104976495226,
+          "median_short_utility": 0.8411108554827917,
+          "mean_mfe": 2.745562860945798,
+          "mean_mae": 2.036503376137536,
+          "mean_gross_return": 0.0015165482589061035,
+          "mean_net_return": 0.0005165482589061031,
+          "positive_net_return_ratio": 0.4666666666666667
+        },
+        "all": {
+          "sample_count": 140,
+          "mean_short_utility": 1.2647792597863925,
+          "median_short_utility": 0.4234118854633217,
+          "mean_mfe": 3.249239320214487,
+          "mean_mae": 2.8349429434687066,
+          "mean_gross_return": 0.0002983620764062175,
+          "mean_net_return": -0.0007016379235937832,
+          "positive_net_return_ratio": 0.35714285714285715
+        }
+      },
+      "control_mean_gross_return": 0.0008423677016843368,
+      "per_fold_counts": [
+        {
+          "train": 78,
+          "val": 10,
+          "test": 36
+        },
+        {
+          "train": 105,
+          "val": 20,
+          "test": 43
+        },
+        {
+          "train": 140,
+          "val": 28,
+          "test": 34
+        },
+        {
+          "train": 175,
+          "val": 29,
+          "test": 27
+        }
+      ],
+      "per_fold_threshold": [
+        1.883,
+        1.882,
+        1.841,
+        1.806
+      ],
+      "per_fold_best_iteration": [
+        43,
+        4,
+        99,
+        51
+      ],
+      "edge_all_vs_control_bp": -5.4400562527811935,
+      "edge_top10_vs_control_bp": 27.30841313366844
+    }
+  }
+}

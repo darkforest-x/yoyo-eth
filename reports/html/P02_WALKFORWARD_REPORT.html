@@ -58,7 +58,7 @@ python3 -m pytest tests/ -q
 <th>item</th>
 <th>value</th>
 </tr></thead><tbody>
-<tr><td>data</td><td>2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0 (holdout &gt;= 2026-05-04 never read)</td></tr>
+<tr><td>data</td><td>2025-06-01 12:45:00+00:00 .. 2026-05-03 23:45:00+00:00, 32301 bars, gaps=0 (rows &gt;= 2026-05-04 excluded right after CSV parsing, before all computation)</td></tr>
 <tr><td>folds</td><td>4 anchored, initial train 40%, OOS = last 60% in equal slices</td></tr>
 <tr><td>embargo gap</td><td>164 bars; horizon 24 bars</td></tr>
 <tr><td>threshold freeze</td><td>per fold, inner-train bars only (inner val 15% of train, early stopping only)</td></tr>
@@ -79,12 +79,12 @@ python3 -m pytest tests/ -q
 <th>all-ctrl</th>
 <th>top10-ctrl</th>
 </tr></thead><tbody>
-<tr><td>zone_start@0.3</td><td>195</td><td>[-0.132, 0.202, -0.04, -0.225]</td><td>-0.035</td><td>-17.7bp</td><td>-28bp / -38bp</td><td>+14.1bp</td><td>+8.4bp</td><td>+5.7bp</td><td>-26.2bp</td></tr>
-<tr><td>zone_start@0.45</td><td>177</td><td>[0.052, -0.083, 0.011, 0.255]</td><td>+0.052</td><td>+31.0bp</td><td>+21bp / +11bp</td><td>+7.8bp</td><td>+14.4bp</td><td>-6.7bp</td><td>+16.6bp</td></tr>
-<tr><td>dispersion_exit@0.3</td><td>207</td><td>[0.025, 0.006, 0.015, 0.117]</td><td>+0.037</td><td>+60.7bp</td><td>+51bp / +41bp</td><td>+2.8bp</td><td>+6.1bp</td><td>-3.4bp</td><td>+54.6bp</td></tr>
-<tr><td>dispersion_exit@0.45</td><td>192</td><td>[-0.085, -0.135, 0.184, -0.011]</td><td>-0.012</td><td>+48.9bp</td><td>+39bp / +29bp</td><td>+9.3bp</td><td>+9.0bp</td><td>+0.3bp</td><td>+39.9bp</td></tr>
-<tr><td>price_breakout@0.3</td><td>270</td><td>[-0.072, 0.029, -0.273, -0.103]</td><td>-0.096</td><td>-34.8bp</td><td>-45bp / -55bp</td><td>+8.2bp</td><td>+6.9bp</td><td>+1.3bp</td><td>-41.7bp</td></tr>
-<tr><td>price_breakout@0.45</td><td>335</td><td>[0.003, -0.127, -0.084, -0.023]</td><td>-0.059</td><td>+1.9bp</td><td>-8bp / -18bp</td><td>+5.8bp</td><td>+9.4bp</td><td>-3.6bp</td><td>-7.5bp</td></tr>
+<tr><td>zone_start@0.3</td><td>195</td><td>[-0.132, 0.202, -0.04, -0.225]</td><td>-0.035</td><td>-17.7bp</td><td>-28bp / -38bp</td><td>+14.1bp</td><td>+9.3bp</td><td>+4.8bp</td><td>-27.0bp</td></tr>
+<tr><td>zone_start@0.45</td><td>177</td><td>[0.052, -0.083, 0.011, 0.255]</td><td>+0.052</td><td>+31.0bp</td><td>+21bp / +11bp</td><td>+7.8bp</td><td>+11.7bp</td><td>-3.9bp</td><td>+19.3bp</td></tr>
+<tr><td>dispersion_exit@0.3</td><td>207</td><td>[0.025, 0.006, 0.015, 0.117]</td><td>+0.037</td><td>+60.7bp</td><td>+51bp / +41bp</td><td>+2.8bp</td><td>+4.7bp</td><td>-1.9bp</td><td>+56.0bp</td></tr>
+<tr><td>dispersion_exit@0.45</td><td>192</td><td>[-0.085, -0.135, 0.184, -0.011]</td><td>-0.012</td><td>+48.9bp</td><td>+39bp / +29bp</td><td>+9.3bp</td><td>+8.2bp</td><td>+1.1bp</td><td>+40.6bp</td></tr>
+<tr><td>price_breakout@0.3</td><td>270</td><td>[-0.072, 0.029, -0.273, -0.103]</td><td>-0.096</td><td>-34.8bp</td><td>-45bp / -55bp</td><td>+8.2bp</td><td>+8.3bp</td><td>-0.1bp</td><td>-43.1bp</td></tr>
+<tr><td>price_breakout@0.45</td><td>335</td><td>[0.003, -0.127, -0.084, -0.023]</td><td>-0.059</td><td>+1.9bp</td><td>-8bp / -18bp</td><td>+5.8bp</td><td>+8.9bp</td><td>-3.1bp</td><td>-7.0bp</td></tr>
 </tbody></table>
 <p>triggers: zone_start = 压缩带开头开火(MVP 原版,对照); dispersion_exit = 带向上穿出 (压缩结束); price_breakout = 收盘首次离开 <a href="突破尝试">ma_lower, ma_upper</a>。 quantile 0.30 = MVP 原版(对照); 0.45 = 扩池。</p>
 <p>&lt;!-- Narrative sections are appended by the analyst. --&gt;</p>

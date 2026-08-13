@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>P03 — Anchored 触发的 walk-forward 复检</title>
+<style>
+:root { color-scheme: light dark; }
+body { max-width: 62rem; margin: 0 auto; padding: 2rem 1.2rem 5rem;
+       font: 16px/1.75 -apple-system, "PingFang SC", "Hiragino Sans GB",
+             "Microsoft YaHei", system-ui, sans-serif;
+       color: #1a1a1a; background: #fff; word-wrap: break-word; }
+h1 { font-size: 1.9rem; border-bottom: 3px solid #1976d2; padding-bottom: .4rem;
+     margin: 2.4rem 0 1rem; }
+h2 { font-size: 1.45rem; border-bottom: 1px solid #d0d7de; padding-bottom: .3rem;
+     margin: 2rem 0 .8rem; }
+h3 { font-size: 1.15rem; margin: 1.5rem 0 .6rem; }
+h4 { font-size: 1rem; margin: 1.2rem 0 .5rem; color: #444; }
+table { border-collapse: collapse; margin: 1rem 0; font-size: .92rem;
+        display: block; overflow-x: auto; max-width: 100%; }
+th, td { border: 1px solid #d0d7de; padding: .45rem .7rem; text-align: left;
+         white-space: nowrap; }
+th { background: #f2f5f8; font-weight: 600; }
+tr:nth-child(even) td { background: #fafbfc; }
+code { background: #f2f5f8; padding: .12em .35em; border-radius: 4px;
+       font: .88em/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+pre { background: #f6f8fa; padding: .9rem 1.1rem; border-radius: 8px;
+      overflow-x: auto; border: 1px solid #e3e8ee; }
+pre code { background: none; padding: 0; font-size: .85rem; }
+blockquote { margin: 1rem 0; padding: .6rem 1rem; border-left: 4px solid #1976d2;
+             background: #f5f9ff; color: #2c3e50; }
+hr { border: 0; border-top: 1px solid #d0d7de; margin: 2.5rem 0; }
+a { color: #1976d2; }
+img { display: block; max-width: 100%; height: auto; margin: 1rem 0;
+      border: 1px solid #d0d7de; border-radius: 8px; }
+ul, ol { padding-left: 1.5rem; }
+li { margin: .25rem 0; }
+@media (prefers-color-scheme: dark) {
+  body { color: #e6e6e6; background: #14171a; }
+  h2, th, td, hr, pre { border-color: #30363d; }
+  th { background: #1c2128; } tr:nth-child(even) td { background: #191d21; }
+  code, pre { background: #1c2128; } h4 { color: #b8c0c8; }
+  blockquote { background: #172029; color: #cbd5e0; }
+}
+</style>
+</head>
+<body>
+<h1>P03 — Anchored 触发的 walk-forward 复检</h1>
+<p>问题:iteration_v1 的 anchored val ρ=+0.465(p=0.01, n=31)是真信号还是单切分 regime 巧合?方法:与 P02 完全相同的 4 折 anchored harness,两臂(legacy zone_start 对照 / anchored 因果触发)同参数(iteration_v1 模型配置, subsample_freq=1)、同阈值冻结纪律、同修复后对照组。复现:</p>
+<pre><code>
+cd /Users/zhangzc/yoyo-eth
+python3 scripts/run_anchored_walkforward.py
+python3 -m pytest tests/ -q
+</code></pre>
+<table><thead><tr>
+<th>arm</th>
+<th>OOS n</th>
+<th>rho per fold</th>
+<th>rho wmean</th>
+<th>top10 gross</th>
+<th>all gross</th>
+<th>control gross</th>
+<th>all-ctrl</th>
+</tr></thead><tbody>
+<tr><td>legacy_zone_start</td><td>195</td><td>[-0.129, 0.029, 0.013, -0.249]</td><td>-0.075</td><td>+32.5bp</td><td>+14.1bp</td><td>+9.3bp</td><td>+4.8bp</td></tr>
+<tr><td>anchored</td><td>140</td><td>[0.085, 0.064, 0.219, -0.151]</td><td>+0.065</td><td>+35.7bp</td><td>+3.0bp</td><td>+8.4bp</td><td>-5.4bp</td></tr>
+</tbody></table>
+<p>folds: <a href="test 段依次 ≈ 牛市尾/暴跌前/暴跌(iteration_v1 的 val 期">(12920, 12920, 17765), (17765, 17765, 22610), (22610, 22610, 27455), (27455, 27455, 32301)</a>/横盘(其 test 期))</p>
+<p>&lt;!-- Analyst narrative appended below. --&gt;</p>
+<h2>解读</h2>
+<ul>
+<li><strong>主问题的答案:+0.465 没有幸存。</strong> iteration_v1 的 val 段(2026-02→04 暴跌期) 对应本 harness 的 fold 3:同一批事件在真正 OOS 评估下 ρ 只剩 <strong>+0.219</strong>,且下一折 (横盘期)翻负(−0.151)。原 +0.465 的构成:该 split 同时被用于 early stopping (模型选择)+ 单一 regime 顺风。FACT:anchored 加权均值 ρ=+0.065(OOS n=140, 噪声带 ±0.17)——不构成排序能力。</li>
+<li><strong>真正的新发现(OBSERVATION):anchored 在全部 4 折都逐折优于 legacy</strong> (+0.085 vs −0.129 / +0.064 vs +0.029 / +0.219 vs +0.013 / −0.151 vs −0.249), 配对符号检验 p≈0.06(4/4)。语义锚定(把决策点移到破位触发)对排序有一个 微弱、跨 regime 一致的正向贡献——方向对,幅度不够。</li>
+<li><strong>池级(FACT)</strong>:anchored all−ctrl −5.4bp、legacy +4.8bp,两臂事件池仍与同月 同波动桶随机入场无异。</li>
+<li>HYPOTHESIS:6h 固定 horizon 的 short_utility 可能钝化了破位触发的优势 (破位后的行情长短不一);若要继续,下一个单变量应当是标签/退出定义, 而不是再调触发。</li>
+</ul>
+<h2>风险与诚实声明</h2>
+<ul>
+<li>anchored fold 1 的 inner-val 只有 10 个事件,early stopping 在该折上近乎随机; 已按 gate 最低线运行并如实报告。</li>
+<li>两臂对比在同折同参数下严格受控;但 &quot;4/4 优于&quot; 基于 4 个相关样本(anchored 事件 是 legacy episode 的子集变换),p≈0.06 只能算方向性证据。</li>
+<li>P02 对照组已用修复后的函数重算:模型指标逐位不变,池-对照差刷新为 −3.9~+4.8bp(原 −6.7~+5.7bp),结论不变。</li>
+<li>holdout 0 消耗;本轮无任何参数扫描(两臂只跑了各一次)。</li>
+</ul>
+<h2>下一步选项(owner 决策)</h2>
+<ul>
+<li><strong>A. 停止</strong>:三轮 + 两次 walk-forward 复检后,诚实结论是——该信号族(MA 压缩 → 无论何种时点/触发)在 ETH 15m、6h short_utility 下没有可确认的排序或池级 edge;anchored 的语义改善真实但不足以变现。</li>
+<li><strong>B. 换标签再给一次机会</strong>(单变量):保持 anchored 事件不动,把 6h 固定 horizon 换成 first-hit barrier(TP/SL by ATR)——iteration_v1 任务书当时禁止,现在是 自然的下一个变量;仍在 pre-holdout 数据上走同一 walk-forward。</li>
+<li><strong>C. 图廊裁决优先</strong>:先翻 <code>reports/iteration_v1/review_gallery.html</code>,若 anchored 的 decision 图在你眼里仍不是目标形态,A/B 都不用做。</li>
+</ul>
+</body>
+</html>

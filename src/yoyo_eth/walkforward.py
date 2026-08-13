@@ -56,15 +56,24 @@ def run_fold(
     cfg: dict,
     horizon_bars: int,
     gap_bars: int,
+    event_builder=None,
 ) -> dict | None:
+    """One fold. event_builder(df, threshold) -> events frame overrides the
+    default scanner.scan(trigger) source; it must provide decision_pos,
+    decision_ts and a zone_length column (used as the compression_duration
+    feature -- 'compression length confirmed at decision time')."""
     train_end, test_lo, test_hi = fold
     inner_val_start = int(train_end * (1.0 - cfg["walkforward"]["inner_val_frac"]))
 
     thr_info = scanner_mod.freeze_threshold(df, inner_val_start, quantile)
     threshold = thr_info["threshold"]
-    events, scan_stats = scanner_mod.scan(
-        df, threshold, cfg["scanner"]["min_duration"], cfg["scanner"]["cooldown_bars"], trigger
-    )
+    if event_builder is not None:
+        events = event_builder(df, threshold)
+        scan_stats = {"event_source": "custom", "n_events": int(len(events)), "threshold": threshold}
+    else:
+        events, scan_stats = scanner_mod.scan(
+            df, threshold, cfg["scanner"]["min_duration"], cfg["scanner"]["cooldown_bars"], trigger
+        )
     events = labels_mod.add_labels(
         events, df, horizon_bars, cfg["label"]["mae_penalty"], cfg["label"]["round_trip_cost"]
     )
