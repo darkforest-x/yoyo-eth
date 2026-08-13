@@ -1,0 +1,29 @@
+{
+  "threshold_q0.10": 1.113774649749159,
+  "pct_bars_below": 0.09981115135754311,
+  "n_candidates": 31,
+  "rejects": {
+    "too_short": 68,
+    "too_long": 85,
+    "range": 68,
+    "drift": 44
+  },
+  "core_len_dist": {
+    "4": 5,
+    "5": 8,
+    "6": 9,
+    "7": 3,
+    "8": 3,
+    "9": 1,
+    "10": 2
+  },
+  "definition": {
+    "quantile": 0.1,
+    "core_bars": [
+      4,
+      12
+    ],
+    "max_range_atr": 3.0,
+    "max_sma20_drift_atr": 0.5
+  }
+}
